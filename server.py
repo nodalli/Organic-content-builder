@@ -41,6 +41,7 @@ class PipelineRequest(BaseModel):
     cta_chance: float = 0.2
     dry_run: bool = False
     force_body: str | None = None
+    context: str | None = None
 
 
 # ---- Content library endpoints ----
@@ -257,7 +258,7 @@ async def _run_pipeline(job_id: str, req: PipelineRequest):
             with open(CONTENT_DIR / "ctas.json") as f:
                 ctas = json.load(f)
             picks = await asyncio.to_thread(
-                _ai_select_sync, words, bodies, ctas, req.max_cut, req.cta_chance, req.force_body
+                _ai_select_sync, words, bodies, ctas, req.max_cut, req.cta_chance, req.force_body, req.context
             )
             _step(job, 3, f"Cut at {picks['cut_time']}s | Body: {picks['body_id']}", "done")
 
@@ -365,7 +366,7 @@ def _transcribe_sync(video_path: str) -> list[dict]:
     return words
 
 
-def _ai_select_sync(words, bodies, ctas, max_cut, cta_chance, force_body=None):
+def _ai_select_sync(words, bodies, ctas, max_cut, cta_chance, force_body=None, context=None):
     import random
     import anthropic
 
@@ -407,7 +408,7 @@ AVAILABLE BODY CLIPS (these are my response clips that play after the hook):
 {"AVAILABLE CTAs (append one of these at the end):" if include_cta else "NO CTA for this video."}
 {cta_descriptions if include_cta else ""}
 
-Respond with ONLY valid JSON, no markdown:
+{f"ADDITIONAL CONTEXT FROM USER:{chr(10)}{context}{chr(10)}" if context else ""}Respond with ONLY valid JSON, no markdown:
 {{
   "cut_time": <float seconds>,
   "cut_reasoning": "<1 sentence why>",

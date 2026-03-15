@@ -162,6 +162,24 @@
     }
     .setting select:focus { border-color: var(--accent); }
 
+    .context-box {
+      width: 100%;
+      margin-top: 16px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      resize: vertical;
+      min-height: 44px;
+      max-height: 120px;
+    }
+    .context-box::placeholder { color: var(--text-dim); }
+    .context-box:focus { border-color: var(--accent); }
+
     /* Pipeline steps */
     .pipeline { display: none; }
     .pipeline.visible { display: block; }
@@ -532,6 +550,7 @@
           </div>
         </div>
       </div>
+      <textarea class="context-box" id="contextInput" placeholder="Extra context for AI (e.g. 'this person is talking about internships, pick a body that mentions entry-level roles')"></textarea>
     </div>
 
     <!-- Pipeline -->
@@ -891,6 +910,7 @@
             cta_chance: parseInt(document.getElementById('ctaChance').value) / 100,
             dry_run: document.getElementById('dryRun').checked,
             force_body: document.getElementById('forceBody').value || null,
+            context: document.getElementById('contextInput').value.trim() || null,
           }),
         });
         const { job_id } = await res.json();
