@@ -1,0 +1,18 @@
+[
+  {
+    "id": "cold-apply-critique",
+    "file": "bodies/cold_apply_critique.mp4",
+    "tone": "direct, confident",
+    "type": "product-pitch",
+    "transcript": "Cold applying is probably why you're not getting hired. Look, this job was posted 30 mins ago and already has 200 applications. You need to talk to recruiters and this app PAYS YOU MONEY when you connect with them. You just swipe right and it sets up a coffee chat.",
+    "best_for": "clips where the person is frustrated about applying and not hearing back"
+  },
+  {
+    "id": "i-used-to-do-this",
+    "file": "bodies/i_used_to_do_this.mp4",
+    "tone": "relatable, empathetic then pivot to solution",
+    "type": "product-pitch",
+    "transcript": "So I saw this clip and I laughed because I used to make this mistake. I don't apply anymore, I just network with recruiters and I EVEN GOT PAID to do it by this app.",
+    "best_for": "clips where the person describes a common mistake or outdated approach"
+  }
+]

@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+output*.mp4
+content/bodies/*.mp4
+content/ctas/*.mp4
+!content/bodies/.gitkeep
+!content/ctas/.gitkeep
