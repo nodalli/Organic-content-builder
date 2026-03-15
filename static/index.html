@@ -606,7 +606,7 @@
             <input type="text" id="bodyTone" placeholder="Tone (e.g. direct, confident)" />
           </div>
           <input type="text" id="bodyBestFor" placeholder="Best for (e.g. clips where person is frustrated about applying)" />
-          <textarea id="bodyTranscript" placeholder="Transcript of what you say in this clip..."></textarea>
+          <textarea id="bodyTranscript" placeholder="Transcript (leave blank to auto-transcribe with AI)"></textarea>
           <div>
             <button class="btn-sm" onclick="uploadBody()">Upload Body</button>
             <span class="upload-status" id="bodyStatus"></span>
@@ -775,7 +775,7 @@
       const bestFor = document.getElementById('bodyBestFor').value.trim();
       const transcript = document.getElementById('bodyTranscript').value.trim();
 
-      if (!fileInput.files.length || !id || !tone || !transcript || !bestFor) {
+      if (!fileInput.files.length || !id || !tone || !bestFor) {
         status.textContent = 'Fill in all fields and select a file';
         status.className = 'upload-status fail';
         return;
@@ -788,7 +788,7 @@
       form.append('transcript', transcript);
       form.append('best_for', bestFor);
 
-      status.textContent = 'Uploading...';
+      status.textContent = transcript ? 'Uploading...' : 'Uploading & transcribing (may take a moment)...';
       status.className = 'upload-status';
       try {
         const res = await fetch('/api/upload/body', { method: 'POST', body: form });

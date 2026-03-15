@@ -62,7 +62,7 @@ async def upload_body(
     id: str = Form(...),
     tone: str = Form(...),
     type: str = Form("product-pitch"),
-    transcript: str = Form(...),
+    transcript: str = Form(""),
     best_for: str = Form(...),
 ):
     filename = f"{id.replace(' ', '_')}.mp4"
@@ -70,6 +70,10 @@ async def upload_body(
     content = await file.read()
     with open(dest, "wb") as f:
         f.write(content)
+
+    # Auto-transcribe if no transcript provided
+    if not transcript.strip():
+        transcript = await asyncio.to_thread(_transcribe_to_text, str(dest))
 
     with open(CONTENT_DIR / "bodies.json") as f:
         bodies = json.load(f)
@@ -84,7 +88,7 @@ async def upload_body(
     with open(CONTENT_DIR / "bodies.json", "w") as f:
         json.dump(bodies, f, indent=2)
 
-    return {"ok": True, "id": id, "file": f"bodies/{filename}"}
+    return {"ok": True, "id": id, "file": f"bodies/{filename}", "transcript": transcript}
 
 
 @app.post("/api/upload/cta")
@@ -337,6 +341,13 @@ async def _async_run(cmd):
     _, stderr = await proc.communicate()
     if proc.returncode != 0:
         raise RuntimeError(f"Command failed: {' '.join(cmd[:2])}... — {stderr.decode()[-500:]}")
+
+
+def _transcribe_to_text(video_path: str) -> str:
+    import whisper
+    model = whisper.load_model("base")
+    result = model.transcribe(video_path)
+    return result["text"].strip()
 
 
 def _transcribe_sync(video_path: str) -> list[dict]:
