@@ -240,6 +240,7 @@ async def _run_pipeline(job_id: str, req: PipelineRequest):
             reel_path = os.path.join(workdir, "reel.mp4")
             await _async_run([
                 sys.executable, "-m", "yt_dlp", "--no-warnings",
+                "--cookies-from-browser", "chrome",
                 "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
                 "--merge-output-format", "mp4",
                 "-o", reel_path, req.url,
