@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .env
 output*.mp4
+outputs/
 content/bodies/*.mp4
 content/ctas/*.mp4
 !content/bodies/.gitkeep

@@ -1,3 +1,5 @@
 anthropic
 openai-whisper
 yt-dlp
+fastapi
+uvicorn[standard]

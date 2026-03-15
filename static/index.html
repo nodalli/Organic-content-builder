@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Organic Content Builder</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --surface-2: #1a1a26;
+      --border: #2a2a3a;
+      --text: #e4e4ef;
+      --text-dim: #8888a0;
+      --accent: #7c5cfc;
+      --accent-glow: rgba(124, 92, 252, 0.15);
+      --green: #34d399;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    .header h1 span { color: var(--accent); }
+    .header p {
+      color: var(--text-dim);
+      font-size: 15px;
+    }
+
+    /* Card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+    }
+
+    /* Input */
+    .url-input-group {
+      display: flex;
+      gap: 10px;
+    }
+    .url-input {
+      flex: 1;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .url-input::placeholder { color: var(--text-dim); }
+    .url-input:focus { border-color: var(--accent); }
+
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Settings row */
+    .settings-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .setting {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .setting label {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+    .setting input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+    .setting .value {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .setting .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .setting .checkbox-row input {
+      accent-color: var(--accent);
+      width: 16px;
+      height: 16px;
+    }
+    .setting .checkbox-row span {
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    /* Pipeline steps */
+    .pipeline { display: none; }
+    .pipeline.visible { display: block; }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .step:last-child { border-bottom: none; }
+
+    .step-num {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      transition: all 0.3s;
+    }
+    .step.running .step-num {
+      background: var(--accent-glow);
+      border-color: var(--accent);
+      color: var(--accent);
+      animation: pulse 1.5s infinite;
+    }
+    .step.done .step-num {
+      background: rgba(52, 211, 153, 0.15);
+      border-color: var(--green);
+      color: var(--green);
+    }
+    .step.error .step-num {
+      background: rgba(248, 113, 113, 0.15);
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+      50% { box-shadow: 0 0 0 8px transparent; }
+    }
+
+    .step-content { flex: 1; min-width: 0; }
+    .step-label {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .step-message {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    /* Results */
+    .results { display: none; }
+    .results.visible { display: block; }
+
+    .picks-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .pick-item {
+      background: var(--surface-2);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .pick-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+    .pick-value {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .pick-reason {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    .video-player {
+      width: 100%;
+      max-height: 500px;
+      border-radius: 8px;
+      background: #000;
+      margin-top: 16px;
+    }
+
+    /* Content library */
+    .library-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .library-item {
+      background: var(--surface-2);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .library-item .lib-id {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--accent);
+    }
+    .library-item .lib-tone {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+    .library-item .lib-transcript {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .library-section-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 16px 0 10px;
+      color: var(--text);
+    }
+    .library-section-title:first-child { margin-top: 0; }
+
+    /* Error */
+    .error-banner {
+      background: rgba(248, 113, 113, 0.1);
+      border: 1px solid var(--red);
+      border-radius: 8px;
+      padding: 14px;
+      color: var(--red);
+      font-size: 14px;
+      margin-top: 16px;
+      display: none;
+    }
+    .error-banner.visible { display: block; }
+
+    @media (max-width: 600px) {
+      .settings-row { grid-template-columns: 1fr; }
+      .picks-grid { grid-template-columns: 1fr; }
+      .library-grid { grid-template-columns: 1fr; }
+      .url-input-group { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Organic <span>Content Builder</span></h1>
+      <p>Paste a reel. Get a ready-to-post stitch video.</p>
+    </div>
+
+    <!-- Input -->
+    <div class="card">
+      <div class="card-title">Instagram Reel URL</div>
+      <div class="url-input-group">
+        <input type="text" class="url-input" id="urlInput" placeholder="https://instagram.com/reel/..." />
+        <button class="btn" id="runBtn" onclick="run()">Build</button>
+      </div>
+      <div class="settings-row">
+        <div class="setting">
+          <label>Max Hook Length</label>
+          <input type="range" id="maxCut" min="3" max="15" step="0.5" value="8" oninput="document.getElementById('maxCutVal').textContent = this.value + 's'" />
+          <span class="value" id="maxCutVal">8s</span>
+        </div>
+        <div class="setting">
+          <label>CTA Chance</label>
+          <input type="range" id="ctaChance" min="0" max="100" step="5" value="20" oninput="document.getElementById('ctaVal').textContent = this.value + '%'" />
+          <span class="value" id="ctaVal">20%</span>
+        </div>
+        <div class="setting">
+          <label>Mode</label>
+          <div class="checkbox-row">
+            <input type="checkbox" id="dryRun" />
+            <span>Dry run</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pipeline -->
+    <div class="card pipeline" id="pipeline">
+      <div class="card-title">Pipeline</div>
+      <div class="step" id="step-1">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Download</div>
+          <div class="step-message">Waiting...</div>
+        </div>
+      </div>
+      <div class="step" id="step-2">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label">Transcribe</div>
+          <div class="step-message">Waiting...</div>
+        </div>
+      </div>
+      <div class="step" id="step-3">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label">AI Selection</div>
+          <div class="step-message">Waiting...</div>
+        </div>
+      </div>
+      <div class="step" id="step-4">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-label">Normalize</div>
+          <div class="step-message">Waiting...</div>
+        </div>
+      </div>
+      <div class="step" id="step-5">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-label">Stitch</div>
+          <div class="step-message">Waiting...</div>
+        </div>
+      </div>
+      <div class="error-banner" id="errorBanner"></div>
+    </div>
+
+    <!-- Results -->
+    <div class="card results" id="results">
+      <div class="card-title">Results</div>
+      <div class="picks-grid" id="picksGrid"></div>
+      <video class="video-player" id="videoPlayer" controls style="display:none"></video>
+    </div>
+
+    <!-- Content Library -->
+    <div class="card">
+      <div class="card-title">Content Library</div>
+      <div id="library">Loading...</div>
+    </div>
+  </div>
+
+  <script>
+    // Load content library on page load
+    fetch('/api/content')
+      .then(r => r.json())
+      .then(data => {
+        const el = document.getElementById('library');
+        let html = '<div class="library-section-title">Body Clips</div><div class="library-grid">';
+        data.bodies.forEach(b => {
+          html += `<div class="library-item">
+            <div class="lib-id">${b.id}</div>
+            <div class="lib-tone">${b.tone} &middot; ${b.type}</div>
+            <div class="lib-transcript">${b.transcript}</div>
+          </div>`;
+        });
+        html += '</div><div class="library-section-title">CTAs</div><div class="library-grid">';
+        data.ctas.forEach(c => {
+          html += `<div class="library-item">
+            <div class="lib-id">${c.id}</div>
+            <div class="lib-transcript">${c.transcript}</div>
+          </div>`;
+        });
+        html += '</div>';
+        el.innerHTML = html;
+      })
+      .catch(() => {
+        document.getElementById('library').textContent = 'Could not load content library.';
+      });
+
+    function resetPipeline() {
+      for (let i = 1; i <= 5; i++) {
+        const step = document.getElementById(`step-${i}`);
+        step.className = 'step';
+        step.querySelector('.step-message').textContent = 'Waiting...';
+      }
+      document.getElementById('errorBanner').className = 'error-banner';
+      document.getElementById('results').className = 'card results';
+      document.getElementById('videoPlayer').style.display = 'none';
+      document.getElementById('picksGrid').innerHTML = '';
+    }
+
+    async function run() {
+      const url = document.getElementById('urlInput').value.trim();
+      if (!url) return;
+
+      const btn = document.getElementById('runBtn');
+      btn.disabled = true;
+      btn.textContent = 'Running...';
+
+      resetPipeline();
+      document.getElementById('pipeline').className = 'card pipeline visible';
+
+      try {
+        const res = await fetch('/api/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url,
+            max_cut: parseFloat(document.getElementById('maxCut').value),
+            cta_chance: parseInt(document.getElementById('ctaChance').value) / 100,
+            dry_run: document.getElementById('dryRun').checked,
+          }),
+        });
+        const { job_id } = await res.json();
+
+        // SSE stream
+        const evtSource = new EventSource(`/api/status/${job_id}`);
+        evtSource.onmessage = (e) => {
+          const data = JSON.parse(e.data);
+
+          if (data.type === 'final') {
+            evtSource.close();
+            btn.disabled = false;
+            btn.textContent = 'Build';
+
+            if (data.status === 'error') {
+              const banner = document.getElementById('errorBanner');
+              banner.textContent = data.error;
+              banner.className = 'error-banner visible';
+            } else if (data.result) {
+              showResults(data.result);
+            }
+            return;
+          }
+
+          // Update step
+          const step = document.getElementById(`step-${data.step}`);
+          if (!step) return;
+          step.className = `step ${data.status}`;
+          step.querySelector('.step-message').textContent = data.message;
+        };
+
+        evtSource.onerror = () => {
+          evtSource.close();
+          btn.disabled = false;
+          btn.textContent = 'Build';
+        };
+
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Build';
+        const banner = document.getElementById('errorBanner');
+        banner.textContent = err.message;
+        banner.className = 'error-banner visible';
+      }
+    }
+
+    function showResults(result) {
+      const picks = result.picks;
+      const grid = document.getElementById('picksGrid');
+
+      grid.innerHTML = `
+        <div class="pick-item">
+          <div class="pick-label">Cut Point</div>
+          <div class="pick-value">${picks.cut_time}s</div>
+          <div class="pick-reason">${picks.cut_reasoning || ''}</div>
+        </div>
+        <div class="pick-item">
+          <div class="pick-label">Body Clip</div>
+          <div class="pick-value">${picks.body_id}</div>
+          <div class="pick-reason">${picks.body_reasoning || ''}</div>
+        </div>
+        ${picks.cta_id ? `<div class="pick-item">
+          <div class="pick-label">CTA</div>
+          <div class="pick-value">${picks.cta_id}</div>
+        </div>` : ''}
+        ${result.dry_run ? `<div class="pick-item">
+          <div class="pick-label">Mode</div>
+          <div class="pick-value" style="color: var(--yellow)">Dry Run</div>
+        </div>` : ''}
+      `;
+
+      document.getElementById('results').className = 'card results visible';
+
+      if (result.output && !result.dry_run) {
+        const player = document.getElementById('videoPlayer');
+        player.src = `/api/outputs/${result.output}`;
+        player.style.display = 'block';
+      }
+    }
+
+    // Enter key to submit
+    document.getElementById('urlInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') run();
+    });
+  </script>
+</body>
+</html>
