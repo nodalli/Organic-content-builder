@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .env
+cookies.txt
 output*.mp4
 outputs/
 history.json
