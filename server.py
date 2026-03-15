@@ -238,18 +238,12 @@ async def _run_pipeline(job_id: str, req: PipelineRequest):
             # Step 1: Download
             _step(job, 1, "Downloading reel...", "running")
             reel_path = os.path.join(workdir, "reel.mp4")
-            dl_cmd = [
+            await _async_run([
                 sys.executable, "-m", "yt_dlp", "--no-warnings",
-            ]
-            cookies_file = Path(__file__).parent / "cookies.txt"
-            if cookies_file.exists():
-                dl_cmd += ["--cookies", str(cookies_file)]
-            dl_cmd += [
                 "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
                 "--merge-output-format", "mp4",
                 "-o", reel_path, req.url,
-            ]
-            await _async_run(dl_cmd)
+            ])
             _step(job, 1, "Downloaded", "done")
 
             # Step 2: Transcribe
