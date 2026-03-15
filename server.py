@@ -14,9 +14,10 @@ import subprocess
 import sys
 import tempfile
 import uuid
+from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, Form, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -24,6 +25,9 @@ from pydantic import BaseModel
 CONTENT_DIR = Path(__file__).parent / "content"
 OUTPUT_DIR = Path(__file__).parent / "outputs"
 OUTPUT_DIR.mkdir(exist_ok=True)
+HISTORY_FILE = Path(__file__).parent / "history.json"
+if not HISTORY_FILE.exists():
+    HISTORY_FILE.write_text("[]")
 
 app = FastAPI()
 
@@ -36,6 +40,7 @@ class PipelineRequest(BaseModel):
     max_cut: float = 8.0
     cta_chance: float = 0.2
     dry_run: bool = False
+    force_body: str | None = None
 
 
 # ---- Content library endpoints ----
@@ -47,6 +52,131 @@ def get_content():
     with open(CONTENT_DIR / "ctas.json") as f:
         ctas = json.load(f)
     return {"bodies": bodies, "ctas": ctas}
+
+
+# ---- Upload endpoints ----
+
+@app.post("/api/upload/body")
+async def upload_body(
+    file: UploadFile = File(...),
+    id: str = Form(...),
+    tone: str = Form(...),
+    type: str = Form("product-pitch"),
+    transcript: str = Form(...),
+    best_for: str = Form(...),
+):
+    filename = f"{id.replace(' ', '_')}.mp4"
+    dest = CONTENT_DIR / "bodies" / filename
+    content = await file.read()
+    with open(dest, "wb") as f:
+        f.write(content)
+
+    with open(CONTENT_DIR / "bodies.json") as f:
+        bodies = json.load(f)
+    bodies.append({
+        "id": id,
+        "file": f"bodies/{filename}",
+        "tone": tone,
+        "type": type,
+        "transcript": transcript,
+        "best_for": best_for,
+    })
+    with open(CONTENT_DIR / "bodies.json", "w") as f:
+        json.dump(bodies, f, indent=2)
+
+    return {"ok": True, "id": id, "file": f"bodies/{filename}"}
+
+
+@app.post("/api/upload/cta")
+async def upload_cta(
+    file: UploadFile = File(...),
+    id: str = Form(...),
+    transcript: str = Form(...),
+):
+    filename = f"{id.replace(' ', '_')}.mp4"
+    dest = CONTENT_DIR / "ctas" / filename
+    content = await file.read()
+    with open(dest, "wb") as f:
+        f.write(content)
+
+    with open(CONTENT_DIR / "ctas.json") as f:
+        ctas = json.load(f)
+    ctas.append({
+        "id": id,
+        "file": f"ctas/{filename}",
+        "transcript": transcript,
+    })
+    with open(CONTENT_DIR / "ctas.json", "w") as f:
+        json.dump(ctas, f, indent=2)
+
+    return {"ok": True, "id": id, "file": f"ctas/{filename}"}
+
+
+@app.delete("/api/content/{clip_type}/{clip_id}")
+async def delete_clip(clip_type: str, clip_id: str):
+    if clip_type not in ("body", "cta"):
+        raise HTTPException(400, "Type must be 'body' or 'cta'")
+
+    json_file = CONTENT_DIR / ("bodies.json" if clip_type == "body" else "ctas.json")
+    with open(json_file) as f:
+        items = json.load(f)
+
+    item = next((i for i in items if i["id"] == clip_id), None)
+    if not item:
+        raise HTTPException(404, "Clip not found")
+
+    # Remove video file
+    video_path = CONTENT_DIR / item["file"]
+    if video_path.exists():
+        video_path.unlink()
+
+    # Remove from JSON
+    items = [i for i in items if i["id"] != clip_id]
+    with open(json_file, "w") as f:
+        json.dump(items, f, indent=2)
+
+    return {"ok": True}
+
+
+# ---- History endpoints ----
+
+@app.get("/api/history")
+def get_history():
+    with open(HISTORY_FILE) as f:
+        return json.load(f)
+
+
+@app.delete("/api/history/{job_id}")
+async def delete_history_item(job_id: str):
+    with open(HISTORY_FILE) as f:
+        history = json.load(f)
+    item = next((h for h in history if h["job_id"] == job_id), None)
+    if not item:
+        raise HTTPException(404)
+    # Delete output video if it exists
+    if item.get("output"):
+        path = OUTPUT_DIR / item["output"]
+        if path.exists():
+            path.unlink()
+    history = [h for h in history if h["job_id"] != job_id]
+    with open(HISTORY_FILE, "w") as f:
+        json.dump(history, f, indent=2)
+    return {"ok": True}
+
+
+def _save_history(job_id: str, url: str, picks: dict, output: str | None, dry_run: bool):
+    with open(HISTORY_FILE) as f:
+        history = json.load(f)
+    history.insert(0, {
+        "job_id": job_id,
+        "url": url,
+        "created_at": datetime.now().isoformat(),
+        "picks": picks,
+        "output": output,
+        "dry_run": dry_run,
+    })
+    with open(HISTORY_FILE, "w") as f:
+        json.dump(history, f, indent=2)
 
 
 # ---- Pipeline endpoints ----
@@ -104,7 +234,7 @@ async def _run_pipeline(job_id: str, req: PipelineRequest):
             _step(job, 1, "Downloading reel...", "running")
             reel_path = os.path.join(workdir, "reel.mp4")
             await _async_run([
-                "yt-dlp", "--no-warnings",
+                sys.executable, "-m", "yt_dlp", "--no-warnings",
                 "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
                 "--merge-output-format", "mp4",
                 "-o", reel_path, req.url,
@@ -123,13 +253,14 @@ async def _run_pipeline(job_id: str, req: PipelineRequest):
             with open(CONTENT_DIR / "ctas.json") as f:
                 ctas = json.load(f)
             picks = await asyncio.to_thread(
-                _ai_select_sync, words, bodies, ctas, req.max_cut, req.cta_chance
+                _ai_select_sync, words, bodies, ctas, req.max_cut, req.cta_chance, req.force_body
             )
             _step(job, 3, f"Cut at {picks['cut_time']}s | Body: {picks['body_id']}", "done")
 
             if req.dry_run:
                 job["result"] = {"picks": picks, "dry_run": True}
                 job["status"] = "done"
+                _save_history(job_id, req.url, picks, None, True)
                 return
 
             # Step 4: Normalize
@@ -187,6 +318,7 @@ async def _run_pipeline(job_id: str, req: PipelineRequest):
                 "dry_run": False,
             }
             job["status"] = "done"
+            _save_history(job_id, req.url, picks, output_name, False)
 
     except Exception as e:
         job["error"] = str(e)
@@ -222,7 +354,7 @@ def _transcribe_sync(video_path: str) -> list[dict]:
     return words
 
 
-def _ai_select_sync(words, bodies, ctas, max_cut, cta_chance):
+def _ai_select_sync(words, bodies, ctas, max_cut, cta_chance, force_body=None):
     import random
     import anthropic
 
@@ -236,6 +368,12 @@ def _ai_select_sync(words, bodies, ctas, max_cut, cta_chance):
         f"- id: {c['id']}\n  transcript: \"{c['transcript']}\"" for c in ctas
     )
     include_cta = random.random() < cta_chance
+
+    body_instruction = (
+        f'\nBODY OVERRIDE: The user has manually selected body_id "{force_body}". Use this body. Do NOT pick a different one.'
+        if force_body else
+        "\nPick the body clip that best responds to what the person said in the hook."
+    )
 
     prompt = f"""You are editing short-form video content for social media.
 
@@ -253,8 +391,7 @@ CUT POINT RULES:
 
 AVAILABLE BODY CLIPS (these are my response clips that play after the hook):
 {body_descriptions}
-
-Pick the body clip that best responds to what the person said in the hook.
+{body_instruction}
 
 {"AVAILABLE CTAs (append one of these at the end):" if include_cta else "NO CTA for this video."}
 {cta_descriptions if include_cta else ""}
@@ -263,7 +400,7 @@ Respond with ONLY valid JSON, no markdown:
 {{
   "cut_time": <float seconds>,
   "cut_reasoning": "<1 sentence why>",
-  "body_id": "<id>",
+  "body_id": "{force_body if force_body else '<id>'}",
   "body_reasoning": "<1 sentence why>",
   "cta_id": {"<id> or null" if include_cta else "null"}
 }}"""

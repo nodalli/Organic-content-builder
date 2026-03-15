@@ -1,18 +1,18 @@
 [
   {
-    "id": "cold-apply-critique",
-    "file": "bodies/cold_apply_critique.mp4",
-    "tone": "direct, confident",
+    "id": "Cold applying is probably why you're not getting",
+    "file": "bodies/Cold_applying_is_probably_why_you're_not_getting.mp4",
+    "tone": "direct",
     "type": "product-pitch",
     "transcript": "Cold applying is probably why you're not getting hired. Look, this job was posted 30 mins ago and already has 200 applications. You need to talk to recruiters and this app PAYS YOU MONEY when you connect with them. You just swipe right and it sets up a coffee chat.",
-    "best_for": "clips where the person is frustrated about applying and not hearing back"
+    "best_for": "WHEN THEYRE frusterated when applying"
   },
   {
-    "id": "i-used-to-do-this",
-    "file": "bodies/i_used_to_do_this.mp4",
-    "tone": "relatable, empathetic then pivot to solution",
+    "id": "LinkedIn Tip",
+    "file": "bodies/LinkedIn_Tip.mp4",
+    "tone": "Confident",
     "type": "product-pitch",
-    "transcript": "So I saw this clip and I laughed because I used to make this mistake. I don't apply anymore, I just network with recruiters and I EVEN GOT PAID to do it by this app.",
-    "best_for": "clips where the person describes a common mistake or outdated approach"
+    "transcript": "here's a linkedin job search hack that no one's going to tell you about go to linkedin jobs and enter your target role and location you'll see most posts have hundreds of applicants so look at the url see where it says r864000 change that to r600 and refresh the page now you're looking at jobs from the last hour with barely any competition and if you really want to make sure to book coffee chats go to nodali.com connect your linkedin put in the same role you just searched It pulls up everyone relevant at those companies. People from your university, employees, hiring managers, drafts custom messages for each one and sends them automatically. Just comment hack and I'll send you the link.",
+    "best_for": "Good when theyre specific about how annoying the job app process is"
   }
 ]

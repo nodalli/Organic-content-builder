@@ -3,3 +3,4 @@ openai-whisper
 yt-dlp
 fastapi
 uvicorn[standard]
+python-multipart

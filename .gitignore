@@ -3,6 +3,7 @@ __pycache__/
 .env
 output*.mp4
 outputs/
+history.json
 content/bodies/*.mp4
 content/ctas/*.mp4
 !content/bodies/.gitkeep
