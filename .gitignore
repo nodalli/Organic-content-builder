@@ -9,3 +9,5 @@ content/bodies/*.mp4
 content/ctas/*.mp4
 !content/bodies/.gitkeep
 !content/ctas/.gitkeep
+.vercel/
+node_modules/

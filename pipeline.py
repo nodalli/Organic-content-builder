@@ -11,10 +11,11 @@ Usage:
     python pipeline.py <INSTAGRAM_URL> --cta-chance 0.2 --max-cut 8
 
 Requirements:
-    pip install anthropic openai-whisper yt-dlp
+    pip install anthropic openai yt-dlp
 
 Environment:
     ANTHROPIC_API_KEY must be set
+    OPENAI_API_KEY must be set (for Whisper transcription)
 """
 
 import argparse
@@ -39,9 +40,9 @@ def check_dependencies():
         if not subprocess.shutil.which(cmd):
             missing.append(cmd)
     try:
-        import whisper  # noqa: F401
+        import openai  # noqa: F401
     except ImportError:
-        missing.append("openai-whisper (pip install openai-whisper)")
+        missing.append("openai (pip install openai)")
     try:
         import anthropic  # noqa: F401
     except ImportError:
@@ -55,6 +56,10 @@ def check_dependencies():
 
     if not os.environ.get("ANTHROPIC_API_KEY"):
         print("Error: ANTHROPIC_API_KEY environment variable is not set.")
+        sys.exit(1)
+
+    if not os.environ.get("OPENAI_API_KEY"):
+        print("Error: OPENAI_API_KEY environment variable is not set.")
         sys.exit(1)
 
 
@@ -85,21 +90,25 @@ def download_reel(url: str, output_path: str) -> str:
 
 def transcribe(video_path: str) -> list[dict]:
     """Returns list of {'start': float, 'end': float, 'text': str} segments."""
-    import whisper
+    from openai import OpenAI
 
     print("[2/5] Transcribing audio...")
-    model = whisper.load_model("base")
-    result = model.transcribe(video_path, word_timestamps=True)
+    client = OpenAI()
+    with open(video_path, "rb") as f:
+        result = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=f,
+            response_format="verbose_json",
+            timestamp_granularities=["word"],
+        )
 
-    # Flatten to word-level timestamps
     words = []
-    for segment in result["segments"]:
-        for word in segment.get("words", []):
-            words.append({
-                "start": round(word["start"], 2),
-                "end": round(word["end"], 2),
-                "text": word["word"].strip(),
-            })
+    for word in result.words:
+        words.append({
+            "start": round(word["start"], 2),
+            "end": round(word["end"], 2),
+            "text": word["word"].strip(),
+        })
 
     print(f"      Transcribed {len(words)} words")
     return words

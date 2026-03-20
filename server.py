@@ -10,6 +10,7 @@ Usage:
 import asyncio
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -22,12 +23,32 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+IS_VERCEL = bool(os.environ.get("VERCEL"))
+
 CONTENT_DIR = Path(__file__).parent / "content"
-OUTPUT_DIR = Path(__file__).parent / "outputs"
+
+if IS_VERCEL:
+    OUTPUT_DIR = Path("/tmp/outputs")
+    HISTORY_FILE = Path("/tmp/history.json")
+else:
+    OUTPUT_DIR = Path(__file__).parent / "outputs"
+    HISTORY_FILE = Path(__file__).parent / "history.json"
+
 OUTPUT_DIR.mkdir(exist_ok=True)
-HISTORY_FILE = Path(__file__).parent / "history.json"
 if not HISTORY_FILE.exists():
     HISTORY_FILE.write_text("[]")
+
+
+def _get_ffmpeg() -> str:
+    """Find ffmpeg binary path."""
+    path = shutil.which("ffmpeg")
+    if path:
+        return path
+    # Fallback: try common serverless locations
+    for candidate in ["/usr/bin/ffmpeg", "/opt/bin/ffmpeg", "/tmp/ffmpeg"]:
+        if os.path.isfile(candidate):
+            return candidate
+    return "ffmpeg"
 
 app = FastAPI()
 
@@ -270,9 +291,10 @@ async def _run_pipeline(job_id: str, req: PipelineRequest):
 
             # Step 4: Normalize
             _step(job, 4, "Trimming & normalizing clips...", "running")
+            ffmpeg = _get_ffmpeg()
             trimmed = os.path.join(workdir, "hook.mp4")
             await _async_run([
-                "ffmpeg", "-y", "-i", reel_path, "-t", str(picks["cut_time"]),
+                ffmpeg, "-y", "-i", reel_path, "-t", str(picks["cut_time"]),
                 "-c:v", "libx264", "-c:a", "aac", "-movflags", "+faststart",
                 trimmed, "-loglevel", "warning",
             ])
@@ -293,7 +315,7 @@ async def _run_pipeline(job_id: str, req: PipelineRequest):
             for i, clip in enumerate(clips):
                 norm = os.path.join(workdir, f"norm_{i}.mp4")
                 await _async_run([
-                    "ffmpeg", "-y", "-i", clip,
+                    ffmpeg, "-y", "-i", clip,
                     "-c:v", "libx264", "-c:a", "aac", "-movflags", "+faststart",
                     "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:-1:-1:color=black",
                     "-r", "30", norm, "-loglevel", "warning",
@@ -311,7 +333,7 @@ async def _run_pipeline(job_id: str, req: PipelineRequest):
             output_name = f"output_{job_id}.mp4"
             output_path = str(OUTPUT_DIR / output_name)
             await _async_run([
-                "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+                ffmpeg, "-y", "-f", "concat", "-safe", "0",
                 "-i", concat_file, "-c", "copy",
                 output_path, "-loglevel", "warning",
             ])
@@ -345,24 +367,33 @@ async def _async_run(cmd):
 
 
 def _transcribe_to_text(video_path: str) -> str:
-    import whisper
-    model = whisper.load_model("base")
-    result = model.transcribe(video_path)
-    return result["text"].strip()
+    from openai import OpenAI
+    client = OpenAI()
+    with open(video_path, "rb") as f:
+        result = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=f,
+        )
+    return result.text.strip()
 
 
 def _transcribe_sync(video_path: str) -> list[dict]:
-    import whisper
-    model = whisper.load_model("base")
-    result = model.transcribe(video_path, word_timestamps=True)
+    from openai import OpenAI
+    client = OpenAI()
+    with open(video_path, "rb") as f:
+        result = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=f,
+            response_format="verbose_json",
+            timestamp_granularities=["word"],
+        )
     words = []
-    for segment in result["segments"]:
-        for word in segment.get("words", []):
-            words.append({
-                "start": round(word["start"], 2),
-                "end": round(word["end"], 2),
-                "text": word["word"].strip(),
-            })
+    for word in result.words:
+        words.append({
+            "start": round(word["start"], 2),
+            "end": round(word["end"], 2),
+            "text": word["word"].strip(),
+        })
     return words
 
 

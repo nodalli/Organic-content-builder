@@ -1,5 +1,5 @@
 anthropic
-openai-whisper
+openai
 yt-dlp
 fastapi
 uvicorn[standard]
